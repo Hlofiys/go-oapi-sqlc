@@ -35,7 +35,7 @@ func main() {
 		return os.ReadFile(uri.Path)
 	}
 
-	doc, err := loader.LoadFromFile("api/api.yaml")
+	doc, err := loader.LoadFromFile("api.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +68,7 @@ func main() {
 	validatorOptions.Options.AuthenticationFunc = tools.NewAuthenticator(a)
 	r.Use(middleWare.OapiRequestValidatorWithOptions(doc, validatorOptions))
 	r.Get("/swagger", func(w http.ResponseWriter, r *http.Request) {
-		fileBytes, _ := os.ReadFile("./api/api.yaml")
+		fileBytes, _ := os.ReadFile("api.yaml")
 		w.Header().Set("Content-Type", "text")
 		_, err := w.Write(fileBytes)
 		if err != nil {
