@@ -12,24 +12,24 @@ import (
 )
 
 const createBranch = `-- name: CreateBranch :one
-INSERT INTO branches(
-    name,
-    "maxUsers"
+INSERT INTO "Branches"(
+    "Name",
+    "MaxUsers"
 ) VALUES (
              $1, $2
-         ) RETURNING id, name, "maxUsers", "currentUsers", "groupIds"
+         ) RETURNING "Id", "Name", "MaxUsers", "CurrentUsers", "GroupIds"
 `
 
 type CreateBranchParams struct {
-	Name     string `json:"name"`
-	MaxUsers int32  `json:"maxUsers"`
+	Name     string `json:"Name"`
+	MaxUsers int32  `json:"MaxUsers"`
 }
 
 func (q *Queries) CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error) {
 	row := q.db.QueryRow(ctx, createBranch, arg.Name, arg.MaxUsers)
 	var i Branch
 	err := row.Scan(
-		&i.ID,
+		&i.Id,
 		&i.Name,
 		&i.MaxUsers,
 		&i.CurrentUsers,
@@ -39,8 +39,8 @@ func (q *Queries) CreateBranch(ctx context.Context, arg CreateBranchParams) (Bra
 }
 
 const deleteBranch = `-- name: DeleteBranch :exec
-DELETE FROM branches
-WHERE id = $1
+DELETE FROM "Branches"
+WHERE "Id" = $1
 `
 
 func (q *Queries) DeleteBranch(ctx context.Context, id int32) error {
@@ -49,8 +49,8 @@ func (q *Queries) DeleteBranch(ctx context.Context, id int32) error {
 }
 
 const deleteBranches = `-- name: DeleteBranches :exec
-DELETE FROM branches
-WHERE id = ANY($1::int[])
+DELETE FROM "Branches"
+WHERE "Id" = ANY($1::int[])
 `
 
 func (q *Queries) DeleteBranches(ctx context.Context, dollar_1 []int32) error {
@@ -59,15 +59,15 @@ func (q *Queries) DeleteBranches(ctx context.Context, dollar_1 []int32) error {
 }
 
 const getBranchById = `-- name: GetBranchById :one
-SELECT id, name, "maxUsers", "currentUsers", "groupIds" FROM branches
-WHERE id = $1 LIMIT 1
+SELECT "Id", "Name", "MaxUsers", "CurrentUsers", "GroupIds" FROM "Branches"
+WHERE "Id" = $1 LIMIT 1
 `
 
 func (q *Queries) GetBranchById(ctx context.Context, id int32) (Branch, error) {
 	row := q.db.QueryRow(ctx, getBranchById, id)
 	var i Branch
 	err := row.Scan(
-		&i.ID,
+		&i.Id,
 		&i.Name,
 		&i.MaxUsers,
 		&i.CurrentUsers,
@@ -77,8 +77,8 @@ func (q *Queries) GetBranchById(ctx context.Context, id int32) (Branch, error) {
 }
 
 const listBranches = `-- name: ListBranches :many
-SELECT id, name, "maxUsers", "currentUsers", "groupIds" FROM branches
-ORDER BY id
+SELECT "Id", "Name", "MaxUsers", "CurrentUsers", "GroupIds" FROM "Branches"
+ORDER BY "Id"
 LIMIT $1
     OFFSET $2
 `
@@ -98,7 +98,7 @@ func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]B
 	for rows.Next() {
 		var i Branch
 		if err := rows.Scan(
-			&i.ID,
+			&i.Id,
 			&i.Name,
 			&i.MaxUsers,
 			&i.CurrentUsers,
@@ -115,12 +115,12 @@ func (q *Queries) ListBranches(ctx context.Context, arg ListBranchesParams) ([]B
 }
 
 const updateBranch = `-- name: UpdateBranch :one
-UPDATE branches
+UPDATE "Branches"
 SET
-    name = coalesce($1, name),
-    "maxUsers" = coalesce($2, "maxUsers")
-WHERE id = $3
-RETURNING id, name, "maxUsers", "currentUsers", "groupIds"
+    "Name" = coalesce($1, "Name"),
+    "MaxUsers" = coalesce($2, "MaxUsers")
+WHERE "Id" = $3
+RETURNING "Id", "Name", "MaxUsers", "CurrentUsers", "GroupIds"
 `
 
 type UpdateBranchParams struct {
@@ -133,7 +133,7 @@ func (q *Queries) UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Bra
 	row := q.db.QueryRow(ctx, updateBranch, arg.Name, arg.MaxUsers, arg.BranchID)
 	var i Branch
 	err := row.Scan(
-		&i.ID,
+		&i.Id,
 		&i.Name,
 		&i.MaxUsers,
 		&i.CurrentUsers,

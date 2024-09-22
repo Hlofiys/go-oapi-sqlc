@@ -88,6 +88,12 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // DeleteBranch operation middleware
 func (siw *ServerInterfaceWrapper) DeleteBranch(w http.ResponseWriter, r *http.Request) {
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerScopes, []string{"role:Admin"})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteBranch(w, r)
 	}))
@@ -141,9 +147,16 @@ func (siw *ServerInterfaceWrapper) CheckBranchLimit(w http.ResponseWriter, r *ht
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CheckBranchLimitParams
 
-	// ------------- Optional query parameter "usersAmount" -------------
+	// ------------- Required query parameter "usersAmount" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "usersAmount", r.URL.Query(), &params.UsersAmount)
+	if paramValue := r.URL.Query().Get("usersAmount"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "usersAmount"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "usersAmount", r.URL.Query(), &params.UsersAmount)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "usersAmount", Err: err})
 		return
@@ -206,6 +219,12 @@ func (siw *ServerInterfaceWrapper) UpdateBranch(w http.ResponseWriter, r *http.R
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "branchId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerScopes, []string{"role:Admin"})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateBranch(w, r, branchId)

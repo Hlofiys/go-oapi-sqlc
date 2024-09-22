@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	jwt2 "github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"go-oapi-test/db/sqlc"
 	"go-oapi-test/tools"
 	"io"
@@ -19,8 +21,29 @@ type Server struct {
 }
 
 func (s *Server) DeleteBranch(w http.ResponseWriter, r *http.Request) {
-	//TODO implement me
-	panic("implement me")
+	bodyBytes, err := io.ReadAll(r.Body)
+	defer func() { _ = r.Body.Close() }()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("could not bind request body"))
+		return
+	}
+
+	var branchIds *BranchDeleteDto
+
+	err = json.Unmarshal(bodyBytes, &branchIds)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("could not bind request body " + err.Error()))
+		return
+	}
+	err = s.db.DeleteBranches(r.Context(), *branchIds.BranchIds)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) GetAllBranches(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +63,7 @@ func (s *Server) GetAllBranches(w http.ResponseWriter, r *http.Request) {
 
 	for _, b := range branches {
 		result = append(result, Branch{
-			Id:           &b.ID,
+			Id:           &b.Id,
 			Name:         &b.Name,
 			MaxUsers:     &b.MaxUsers,
 			CurrentUsers: &b.CurrentUsers,
@@ -61,7 +84,7 @@ func (s *Server) CreateBranch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var branch Branch
+	var branch *Branch
 	err = json.Unmarshal(bodyBytes, &branch)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -100,7 +123,7 @@ func (s *Server) CheckBranchLimit(w http.ResponseWriter, r *http.Request, params
 		return
 	}
 
-	branchesInterface, success := jwt.Get("branch")
+	branchesInterface, success := jwt.Claims.(jwt2.MapClaims)["branch"]
 	if !success {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte("could not find branch"))
@@ -120,17 +143,68 @@ func (s *Server) CheckBranchLimit(w http.ResponseWriter, r *http.Request, params
 			return
 		}
 	}
-
+	if params.BranchId == nil {
+		var branchId int32
+		branchId = int32(branches[0])
+		params.BranchId = &branchId
+	}
+	branch, err := s.db.GetBranchById(r.Context(), *params.BranchId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	var result bool
+	result = params.UsersAmount+branch.CurrentUsers <= branch.MaxUsers
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (s *Server) GetBranchById(w http.ResponseWriter, r *http.Request, branchId int32) {
-	//TODO implement me
-	panic("implement me")
+	branch, err := s.db.GetBranchById(r.Context(), branchId)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(branch)
 }
 
 func (s *Server) UpdateBranch(w http.ResponseWriter, r *http.Request, branchId int32) {
-	//TODO implement me
-	panic("implement me")
+	bodyBytes, err := io.ReadAll(r.Body)
+	defer func() { _ = r.Body.Close() }()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("could not bind request body"))
+		return
+	}
+
+	var updateBranchDto *UpdateBranchDto
+	err = json.Unmarshal(bodyBytes, &updateBranchDto)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("could not bind request body"))
+		return
+	}
+
+	branch, err := s.db.UpdateBranch(r.Context(), db.UpdateBranchParams{
+		Name:     pgtype.Text{String: *updateBranchDto.Name, Valid: *updateBranchDto.Name != ""},
+		MaxUsers: pgtype.Int4{Int32: *updateBranchDto.MaxUsers, Valid: *updateBranchDto.MaxUsers != 0},
+		BranchID: branchId,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(branch)
+
 }
 
 func NewServer(db *db.Queries, jwtAuth tools.Authenticator) Server {

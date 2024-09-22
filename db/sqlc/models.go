@@ -5,9 +5,9 @@
 package db
 
 type Branch struct {
-	ID           int32   `json:"id"`
-	Name         string  `json:"name"`
-	MaxUsers     int32   `json:"maxUsers"`
-	CurrentUsers int32   `json:"currentUsers"`
-	GroupIds     []int32 `json:"groupIds"`
+	Id           int32   `json:"Id"`
+	Name         string  `json:"Name"`
+	MaxUsers     int32   `json:"MaxUsers"`
+	CurrentUsers int32   `json:"CurrentUsers"`
+	GroupIds     []int32 `json:"GroupIds"`
 }

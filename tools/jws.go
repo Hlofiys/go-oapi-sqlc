@@ -1,10 +1,9 @@
 package tools
 
 import (
+	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"go-oapi-test/util"
-
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwt"
 )
 
 type Authenticator struct {
@@ -22,6 +21,17 @@ func NewJwsAuthenticator(config util.Config) (*Authenticator, error) {
 // ValidateJWS ensures that the critical JWT claims needed to ensure that we
 // trust the JWT are present and with the correct values.
 func (f *Authenticator) ValidateJWS(jwsString string) (jwt.Token, error) {
-	return jwt.Parse([]byte(jwsString), jwt.WithVerify(jwa.HS256, []byte(f.Config.JwtSecret)),
-		jwt.WithAudience(f.Config.JwtAudience), jwt.WithIssuer(f.Config.JwtIssuer))
+	token, err := jwt.Parse(jwsString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+		return []byte(f.Config.JwtSecret), nil
+	})
+	if err != nil {
+		return jwt.Token{}, fmt.Errorf("error parsing jws token: %v", err)
+	}
+	return *token, nil
 }

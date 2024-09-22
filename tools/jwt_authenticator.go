@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/lestrrat-go/jwx/jwt"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // JWSValidator is used to validate JWS payloads and return a JWT if they're
@@ -17,12 +18,10 @@ type JWSValidator interface {
 	ValidateJWS(jws string) (jwt.Token, error)
 }
 
-const JWTClaimsContextKey = "jwt_claims"
-
 var (
-	ErrNoAuthHeader      = errors.New("Authorization header is missing")
-	ErrInvalidAuthHeader = errors.New("Authorization header is malformed")
-	ErrClaimsInvalid     = errors.New("Provided claims do not match expected scopes")
+	ErrNoAuthHeader      = errors.New("authorization header is missing")
+	ErrInvalidAuthHeader = errors.New("authorization header is malformed")
+	ErrClaimsInvalid     = errors.New("provided claims do not match expected scopes")
 )
 
 // GetJWSFromRequest extracts a JWS string from an Authorization: Bearer <jws> header
@@ -43,13 +42,13 @@ func GetJWSFromRequest(req *http.Request) (string, error) {
 
 func NewAuthenticator(v JWSValidator) openapi3filter.AuthenticationFunc {
 	return func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
-		return Authenticate(v, ctx, input)
+		return Authenticate(v, input)
 	}
 }
 
 // Authenticate uses the specified validator to ensure a JWT is valid, then makes
 // sure that the claims provided by the JWT match the scopes as required in the API.
-func Authenticate(v JWSValidator, ctx context.Context, input *openapi3filter.AuthenticationInput) error {
+func Authenticate(v JWSValidator, input *openapi3filter.AuthenticationInput) error {
 	// Our security scheme is named BearerAuth, ensure this is the case
 	if input.SecuritySchemeName != "Bearer" {
 		return fmt.Errorf("security scheme %s != 'Bearer'", input.SecuritySchemeName)
@@ -87,9 +86,9 @@ func Authenticate(v JWSValidator, ctx context.Context, input *openapi3filter.Aut
 func CheckTokenClaims(expectedClaims []string, t jwt.Token) error {
 	// Put the claims into a map, for quick access.
 	//claimsMap := make(map[string]bool, len(claims))
-	claimsMap, err := t.AsMap(context.Background())
-	if err != nil {
-		return fmt.Errorf("getting claims from token: %w", err)
+	claimsMap, success := t.Claims.(jwt.MapClaims)
+	if !success {
+		return fmt.Errorf("getting claims from token")
 	}
 
 	for _, e := range expectedClaims {

@@ -51,6 +51,9 @@ paths:
       responses:
         "204":
           description: Success
+      security:
+        - Bearer:
+            - "role:Admin"
   /api/branches/{branchId}:
     get:
       tags:
@@ -90,6 +93,9 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateBranchDto"
+      security:
+        - Bearer:
+            - "role:Admin"
       responses:
         "200":
           description: Success
@@ -106,6 +112,7 @@ paths:
       parameters:
         - name: usersAmount
           in: query
+          required: true
           style: form
           schema:
             type: integer
@@ -173,10 +180,12 @@ components:
         name:
           type: string
           nullable: true
+          default: ""
         maxUsers:
           type: integer
           format: int32
-          nullable: true
+          nullable: false
+          default: 0
       additionalProperties: false
   securitySchemes:
     Bearer:

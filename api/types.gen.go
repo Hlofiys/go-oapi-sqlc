@@ -29,13 +29,13 @@ type BranchDeleteDto struct {
 
 // UpdateBranchDto defines model for UpdateBranchDto.
 type UpdateBranchDto struct {
-	MaxUsers *int32  `json:"maxUsers"`
+	MaxUsers *int32  `json:"maxUsers,omitempty"`
 	Name     *string `json:"name"`
 }
 
 // CheckBranchLimitParams defines parameters for CheckBranchLimit.
 type CheckBranchLimitParams struct {
-	UsersAmount *int32 `form:"usersAmount,omitempty" json:"usersAmount,omitempty"`
+	UsersAmount int32  `form:"usersAmount" json:"usersAmount"`
 	BranchId    *int32 `form:"branchId,omitempty" json:"branchId,omitempty"`
 }
 

@@ -70,7 +70,10 @@ func main() {
 	r.Get("/swagger", func(w http.ResponseWriter, r *http.Request) {
 		fileBytes, _ := os.ReadFile("./api/api.yaml")
 		w.Header().Set("Content-Type", "text")
-		w.Write(fileBytes)
+		_, err := w.Write(fileBytes)
+		if err != nil {
+			return
+		}
 	})
 
 	// create a type that satisfies the `api.ServerInterface`, which contains an implementation of every operation from the generated code
