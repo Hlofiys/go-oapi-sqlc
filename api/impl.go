@@ -2,14 +2,17 @@ package api
 
 import (
 	"encoding/json"
-	jwt2 "github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"go-oapi-test/db/sqlc"
+	db "go-oapi-test/db/sqlc"
+	rabbit "go-oapi-test/rabbit/events"
 	"go-oapi-test/tools"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+
+	jwt2 "github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 // ensure that we've conformed to the `ServerInterface` with a compile-time check
@@ -17,6 +20,7 @@ var _ ServerInterface = (*Server)(nil)
 
 type Server struct {
 	db      *db.Queries
+	rabbit  *amqp091.Channel
 	jwtAuth tools.Authenticator
 }
 
@@ -37,11 +41,25 @@ func (s *Server) DeleteBranch(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("could not bind request body " + err.Error()))
 		return
 	}
+
 	err = s.db.DeleteBranches(r.Context(), *branchIds.BranchIds)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
 	}
+
+	for _, branch := range *branchIds.BranchIds {
+		body, _ := json.Marshal(rabbit.BranchRemoved{
+			BranchId: int(branch),
+		})
+
+		s.rabbit.Publish("Events:BranchRemoved", "", false, false, amqp091.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		})
+
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -96,13 +114,11 @@ func (s *Server) CreateBranch(w http.ResponseWriter, r *http.Request) {
 		Name:     *branch.Name,
 		MaxUsers: *branch.MaxUsers,
 	})
-
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("could not create branch"))
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(branchDb)
@@ -144,8 +160,7 @@ func (s *Server) CheckBranchLimit(w http.ResponseWriter, r *http.Request, params
 		}
 	}
 	if params.BranchId == nil {
-		var branchId int32
-		branchId = int32(branches[0])
+		branchId := int32(branches[0])
 		params.BranchId = &branchId
 	}
 	branch, err := s.db.GetBranchById(r.Context(), *params.BranchId)
@@ -156,8 +171,7 @@ func (s *Server) CheckBranchLimit(w http.ResponseWriter, r *http.Request, params
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	var result bool
-	result = params.UsersAmount+branch.CurrentUsers <= branch.MaxUsers
+	result := params.UsersAmount+branch.CurrentUsers <= branch.MaxUsers
 	_ = json.NewEncoder(w).Encode(result)
 }
 
@@ -204,9 +218,8 @@ func (s *Server) UpdateBranch(w http.ResponseWriter, r *http.Request, branchId i
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(branch)
-
 }
 
-func NewServer(db *db.Queries, jwtAuth tools.Authenticator) Server {
-	return Server{db: db, jwtAuth: jwtAuth}
+func NewServer(db *db.Queries, jwtAuth tools.Authenticator, rabbit *amqp091.Channel) Server {
+	return Server{db: db, jwtAuth: jwtAuth, rabbit: rabbit}
 }

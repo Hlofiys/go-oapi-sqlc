@@ -12,6 +12,7 @@ type Config struct {
 	JwtSecret        string `mapstructure:"JWT_SECRET"`
 	JwtIssuer        string `mapstructure:"JWT_ISSUER"`
 	JwtAudience      string `mapstructure:"JWT_AUDIENCE"`
+	RabbitMq         string `mapstructure:"RABBITMQ"`
 }
 
 func LoadConfig(path string) (config Config, err error) {
